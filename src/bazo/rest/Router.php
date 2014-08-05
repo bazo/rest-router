@@ -2,10 +2,12 @@
 
 namespace Bazo\Rest;
 
+use ReflectionClass;
+
 /**
  * @author Martin Bažík <martin@bazik.sk>
  */
-class Roouter
+class Router
 {
 
 	protected $routes = array();
@@ -129,7 +131,7 @@ class Roouter
 				Middleware::$context['http_method'] = self::getRequestMethod();
 				Middleware::$context['callback'] = $route['callback'];
 
-				$callback = Callback_Util::getCallback($route['callback'], $route['file']);
+				$callback = CallbackUtil::getCallback($route['callback'], $route['file']);
 				return $this->invoke_callback($callback, $params);
 			}
 		}

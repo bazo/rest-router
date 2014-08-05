@@ -1,0 +1,24 @@
+{
+	"name": "bazo/rest-router",
+	"type": "library",
+	"description": "Rest router",
+	"keywords": ["rest", "router"],
+	"homepage": "https://github.com/bazo/rest-router",
+	"authors": [
+		{
+			"name": "Martin Bažík",
+			"email": "martin@bazo.sk",
+			"homepage": "http://bazo.sk"
+		}
+	],
+	"minimum-stability": "dev",
+	"require": {
+		"php": ">=5.4.0",
+		"nette/http": "@dev"
+	},
+	"autoload": {
+		"psr-0": {
+			"Bazo": "src/"
+		}
+	}
+}

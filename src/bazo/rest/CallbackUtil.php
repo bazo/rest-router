@@ -34,7 +34,7 @@ class CallbackUtil
 
 		if (is_array($callback)) {
 			$originalClass = array_shift($callback);
-			$method = new ReflectionMethod($originalClass, array_shift($callback));
+			$method = new \ReflectionMethod($originalClass, array_shift($callback));
 
 			$callback = array(self::$container->getByType($originalClass), $method->name);
 		}

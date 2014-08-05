@@ -8,11 +8,11 @@ namespace Bazo\Rest;
 class Template
 {
 
-	private static $globalQueryParams = array();
-	private $patterns = array();
+	private static $globalQueryParams = [];
+	private $patterns = [];
 	private $template = null;
-	private $params = array();
-	private $callbacks = array();
+	private $params = [];
+	private $callbacks = [];
 
 
 	public function __construct($path)
@@ -34,6 +34,7 @@ class Template
 	{
 		$expression = $this->template;
 
+		$matches = [];
 		if (preg_match_all('~(?P<match>\{(?P<name>.+?)\})~', $expression, $matches)) {
 			$expressions = array_map(array($this, 'pattern'), $matches['name']);
 			$expression = str_replace($matches['match'], $expressions, $expression);
@@ -51,7 +52,6 @@ class Template
 				$this->patterns[$token] = $pattern;
 			}
 		} else {
-
 			if (isset($this->patterns[$token])) {
 				$pattern = $this->patterns[$token];
 			} else {
@@ -94,9 +94,7 @@ class Template
 
 	public function match($uri)
 	{
-
 		try {
-
 			$uri = rtrim($uri, '\/');
 
 			if (preg_match($this->getExpression(), $uri, $matches)) {
@@ -116,7 +114,7 @@ class Template
 							}
 						}
 
-						if (strpos($v, '/') !== false) {
+						if (strpos($v, '/') !== FALSE) {
 							$matches[$k] = explode('/', trim($v, '\/'));
 						}
 					}
@@ -126,25 +124,25 @@ class Template
 
 				if (!empty($params)) {
 
-					$matched = false;
+					$matched = FALSE;
 
 					foreach ($params as $name => $param) {
 
 						if (!isset($_GET[$name]) && $param->value) {
 							$_GET[$name] = $param->value;
-							$matched = true;
+							$matched = TRUE;
 						} else if ($param->pattern && isset($_GET[$name])) {
 							$result = preg_match(sprintf('~^%s$~', $param->pattern), $_GET[$name]);
 							if (!$result && $param->value) {
 								$_GET[$name] = $param->value;
-								$result = true;
+								$result = TRUE;
 							}
 							$matched = $result;
 						} else {
-							$matched = false;
+							$matched = FALSE;
 						}
 
-						if ($matched == false) {
+						if ($matched == FALSE) {
 							throw new Exception('Request does not match');
 						}
 					}
