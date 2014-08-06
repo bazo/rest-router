@@ -5,7 +5,7 @@ namespace Bazo\Rest;
 /**
  * @author Martin Bažík <martin@bazik.sk>
  */
-class CallbackFileNotFoundException
+class RestException extends \RuntimeException
 {
-	//put your code here
+	
 }

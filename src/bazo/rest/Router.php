@@ -2,186 +2,155 @@
 
 namespace Bazo\Rest;
 
-use ReflectionClass;
+use Bazo\Rest\Callbacks\CallbackResolverInterface;
+use Bazo\Rest\Callbacks\DefaultCallbackResolver;
+use Bazo\Rest\Middleware\MiddlewareInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+
 
 /**
  * @author Martin Bažík <martin@bazik.sk>
  */
-class Router
+class Router implements MiddlewareInterface, \ArrayAccess
 {
 
-	protected $routes = array();
-	public static $middleware = array();
+	/** @var CallbackResolverInterface */
+	private $callbackResolver;
 
-	/** Allowed HTTP Methods. Restricted to only common ones, for security reasons. * */
-	protected static $methods = array('get', 'post', 'put', 'patch', 'delete', 'head',
-		'options');
+	/** @var array */
+	private $methods = [];
+
+	/** @var array */
+	private $routes = [];
 
 
-	/**
-	 * Add a new route to the configured list of routes
-	 */
-	public function addRoute($params)
+	function __construct(CallbackResolverInterface $callbackResolver = NULL)
 	{
+		if (is_null($callbackResolver)) {
+			$this->callbackResolver = new DefaultCallbackResolver;
+		} else {
+			$this->callbackResolver = $callbackResolver;
+		}
 
-		if (!empty($params['path'])) {
+		$this->methods = Methods::getList();
+	}
 
-			$template = new Template($params['path']);
 
-			if (!empty($params['handlers'])) {
-				foreach ($params['handlers'] as $key => $pattern) {
-					$template->pattern($key, $pattern);
-				}
+	public function setCallbackResolver(CallbackResolverInterface $callbackResolver)
+	{
+		$this->callbackResolver = $callbackResolver;
+	}
+
+
+	public function addRoute(Route $route)
+	{
+		$methods = array_intersect($this->methods, $route->getMethods());
+
+		foreach ($methods as $method) {
+			if (!array_key_exists($method, $this->routes)) {
+				$this->routes[$method] = [];
 			}
 
-			$methods = array_intersect(self::$methods, array_keys($params));
-
-			foreach ($methods as $method) {
-				$this->routes[$method][$params['path']] = array(
-					'template'	 => $template,
-					'callback'	 => $params[$method],
-					'file'		 => !empty($params['file']) ? $params['file'] : '',
-				);
-
-				Middleware::$routes[$method][$params['path']] = $this->routes[$method][$params['path']];
-			}
+			$this->routes[$method][] = $route;
 		}
+		return $this;
 	}
 
 
-	/**
-	 *  Add a new middleware to the list of middlewares
-	 */
-	public function attach()
+	private function getRoutes($method)
 	{
-
-		$args = func_get_args();
-		$className = array_shift($args);
-
-		if (!is_subclass_of($className, 'Middleware')) {
-			throw new InvalidMiddlewareClass("Middleware class: '$className' does not exist or is not a sub-class of Middleware");
-		}
-
-		// convert args array to parameter list
-		$rc = new ReflectionClass($className);
-		$instance = $rc->newInstanceArgs($args);
-
-		self::$middleware[] = $instance;
-		return $instance;
-	}
-
-
-	public function attachMiddleware($middleware)
-	{
-		if (!$middleware instanceof Middleware) {
-			throw new InvalidMiddlewareClass("Middleware is not a sub-class of Middleware");
-		}
-
-		self::$middleware[] = $middleware;
-		return $middleware;
-	}
-
-
-	/**
-	 * Get lower-cased representation of current HTTP Request method
-	 */
-	public static function getRequestMethod()
-	{
-		return strtolower($_SERVER['REQUEST_METHOD']);
-	}
-
-
-	/**
-	 * Please note this method is performance-optimized to only return routes for
-	 * current type of HTTP method
-	 */
-	private function getRoutes($all = false)
-	{
-		if ($all) {
-			return $this->routes;
-		}
-
-		$method = self::getRequestMethod();
-		$routes = empty($this->routes[$method]) ? array() : $this->routes[$method];
+		$routes = empty($this->routes[$method]) ? [] : $this->routes[$method];
 		return $routes;
 	}
 
 
-	public function route($uri = null)
+	public function match(Request $request)
 	{
-		if (empty($uri)) {
-			// CAUTION: parse_url does not work reliably with relative URIs, it is intended for fully qualified URLs.
-			// Using parse_url with URI can cause bugs like this: https://github.com/zaphpa/zaphpa/issues/13
-			// We have URI and we could really use parse_url however, so let's pretend we have a full URL by prepending
-			// our URI with a meaningless scheme/domain.
-			$tokens = parse_url('http://foo.com' . $_SERVER['REQUEST_URI']);
-			$uri = rawurldecode($tokens['path']);
-		}
+		$uri = $request->getPathInfo();
+		$method = $request->getMethod();
 
-		/* Call preprocessors on each middleware impl */
-		foreach (self::$middleware as $m) {
-			$m->preprocess($this);
-		}
-
-		$routes = $this->getRoutes();
+		$routes = $this->getRoutes($method);
 		foreach ($routes as $route) {
-			$params = $route['template']->match($uri);
-			if (!is_null($params)) {
-				Middleware::$context['pattern'] = $route['template']->getTemplate();
-				Middleware::$context['http_method'] = self::getRequestMethod();
-				Middleware::$context['callback'] = $route['callback'];
+			$params = $route->getTemplate()->match($uri);
 
-				$callback = CallbackUtil::getCallback($route['callback'], $route['file']);
-				return $this->invoke_callback($callback, $params);
+			if (is_null($params)) {
+				continue;
 			}
+
+			return [
+				'route'	 => $route,
+				'params' => $params,
+			];
 		}
 
-		if (strcasecmp(Router::getRequestMethod(), "options") == 0) {
-			return $this->invoke_options();
-		}
-		throw new InvalidPathException('Invalid path');
+		return NULL;
 	}
 
 
-	/**
-	 * Main reason this is a separate function is: in case library users want to change
-	 * invokation logic, without having to copy/paste rest of the logic in the route() function.
-	 */
-	protected function invoke_callback($callback, $params)
+	public function route(Request $req, Response $res)
 	{
+		$method = $req->getMethod();
 
-		$req = new Request();
+		$matched = $this->match($req);
+
+		if (is_null($matched)) {
+			throw new InvalidPathException('Invalid path');
+		}
+
+		$route = $matched['route'];
+		$params = $matched['params'];
+
 		$req->params = $params;
-		$res = new Response($req);
 
-		/* Call preprocessors on each middleware impl */
-		foreach (self::$middleware as $m) {
-			if ($m->shouldRun('preroute')) {
-				$m->preroute($req, $res);
-			}
-		}
+		$handler = $route->getHandler($method);
+		$callback = $this->callbackResolver->resolve($handler);
 
-		return call_user_func($callback, $req, $res);
+		call_user_func($callback, $req, $res);
 	}
 
 
-	protected function invoke_options()
+	public function handle(Request $req, Response $res)
 	{
-		$req = new Request();
-		$res = new Response($req);
+		$this->route($req, $res);
+	}
 
-		/* Call preprocessors on each middleware impl */
-		foreach (self::$middleware as $m) {
-			if ($m->shouldRun('preroute')) {
-				$m->preroute($req, $res);
-			}
+
+	public function offsetExists($index)
+	{
+		$this->notSupported();
+	}
+
+
+	public function offsetGet($index)
+	{
+		$this->notSupported();
+	}
+
+
+	public function offsetSet($index, $route)
+	{
+		if (!$route instanceof Route) {
+			throw new \InvalidArgumentException('Argument must be a Route');
 		}
+		if ($index === NULL) {
+			$this->addRoute($route);
+		} else {
+			$this->notSupported();
+		}
+	}
 
-		$res->setFormat("httpd/unix-directory");
-		header("Allow: " . implode(",", array_map('strtoupper', Router::$methods)));
-		$res->send(200);
 
-		return true;
+	public function offsetUnset($index)
+	{
+		$this->notSupported();
+	}
+
+
+	private function notSupported()
+	{
+		throw new \RuntimeException('Not supported');
 	}
 
 

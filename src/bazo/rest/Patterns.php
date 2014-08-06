@@ -5,7 +5,7 @@ namespace Bazo\Rest;
 /**
  * @author Martin Bažík <martin@bazik.sk>
  */
-abstract class Constants
+abstract class Patterns
 {
 
 	const PATTERN_ARGS = '?(?P<%s>(?:/.+)+)';

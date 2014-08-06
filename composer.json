@@ -14,7 +14,9 @@
 	"minimum-stability": "dev",
 	"require": {
 		"php": ">=5.4.0",
-		"nette/http": "@dev"
+		"acclimate/container": "@dev",
+		"symfony/http-foundation": "@dev",
+		"psr/log": "@dev"
 	},
 	"autoload": {
 		"psr-0": {

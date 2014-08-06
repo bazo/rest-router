@@ -5,7 +5,6 @@ namespace Bazo\Rest;
 /**
  * @author Martin Bažík <martin@bazik.sk>
  */
-class InvalidCallbackException
+class InvalidCallbackException extends RestException
 {
-	//put your code here
 }

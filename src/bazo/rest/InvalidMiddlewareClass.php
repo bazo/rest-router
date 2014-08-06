@@ -5,7 +5,6 @@ namespace Bazo\Rest;
 /**
  * @author Martin Bažík <martin@bazik.sk>
  */
-class InvalidMiddlewareClass
+class InvalidMiddlewareClass extends RestException
 {
-	//put your code here
 }
