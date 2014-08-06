@@ -31,7 +31,7 @@ class App
 	private $middleware = [];
 
 
-	function __construct(LoggerInterface $logger, Request $req = NULL, Response $res = NULL)
+	function __construct(LoggerInterface $logger = NULL, Request $req = NULL, Response $res = NULL)
 	{
 		$this->logger = $logger;
 		$this->req = !is_null($req) ? $req : Request::createFromGlobals();
