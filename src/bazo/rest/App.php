@@ -4,6 +4,7 @@ namespace Bazo\Rest;
 
 use Bazo\Rest\Middleware\MiddlewareInterface;
 use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -30,6 +31,9 @@ class App
 	/** @var array */
 	private $middleware = [];
 
+	/** @var array */
+	public $onException = [];
+
 
 	function __construct(LoggerInterface $logger = NULL, Request $req = NULL, Response $res = NULL)
 	{
@@ -55,8 +59,38 @@ class App
 
 	public function run()
 	{
-		foreach ($this->middleware as $middleware) {
-			$middleware->handle($this->req, $this->res);
+		$this->log('Processing uri: ' . $this->req->getUri());
+
+		try {
+			foreach ($this->middleware as $middleware) {
+				$middleware->handle($this->req, $this->res);
+			}
+		} catch (\Exception $e) {
+			$this->log($e->getMessage(), [], LogLevel::ERROR);
+			$this->sendErrorResponse($e);
+			foreach ($this->onException as $exceptionCallback) {
+				call_user_func($exceptionCallback, $e);
+			}
+		}
+		$this->log('Processed uri: ' . $this->req->getUri());
+	}
+
+
+	protected function sendErrorResponse(\Exception $e)
+	{
+		$this->res->setStatusCode(500);
+		$content = [
+			'error' => $e->getMessage()
+		];
+		$this->res->setContent(json_encode($content, JSON_PRETTY_PRINT));
+		$this->res->send();
+	}
+
+
+	public function log($message, $context = [], $level = LogLevel::INFO)
+	{
+		if (!is_null($this->logger)) {
+			$this->logger->log($level, $message, $context);
 		}
 	}
 
