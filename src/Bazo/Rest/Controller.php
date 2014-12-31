@@ -1,6 +1,6 @@
 <?php
 
-namespace Rest;
+namespace Bazo\Rest;
 
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
