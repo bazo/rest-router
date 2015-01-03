@@ -115,7 +115,7 @@ class Router implements MiddlewareInterface, \ArrayAccess
 		$route = $matched['route'];
 		$params = $matched['params'];
 
-		$req->params = $params;
+		$req->attributes->add($params);
 
 		$handler = $route->getHandler($method);
 		$callback = $this->callbackResolver->resolve($handler);
